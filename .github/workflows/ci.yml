@@ -60,11 +60,14 @@ jobs:
           RUST_LOG: debug
 
       # Test without sql feature on Windows (rquickjs has linker issues in CI)
+      # Use single job to avoid LNK1318 PDB errors
       - name: Test (default features without sql)
         if: runner.os == 'Windows'
         run: cargo test --no-default-features --features storage,kv,secrets,email
         env:
           RUST_LOG: debug
+          CARGO_BUILD_JOBS: "1"
+          CARGO_INCREMENTAL: "0"
 
       # Test musl feature set (Linux/macOS only - rquickjs linker issues on Windows)
       - name: Test (musl features)
@@ -175,9 +178,13 @@ jobs:
         run: cargo build --release
 
       # Build without sql feature on Windows (rquickjs linker issues in CI)
+      # Use single job to avoid LNK1318 PDB errors
       - name: Build (release, no sql)
         if: runner.os == 'Windows'
         run: cargo build --release --no-default-features --features storage,kv,secrets,email
+        env:
+          CARGO_BUILD_JOBS: "1"
+          CARGO_INCREMENTAL: "0"
 
   msrv:
     name: Check MSRV (1.85)
