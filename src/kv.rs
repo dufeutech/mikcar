@@ -530,13 +530,13 @@ impl KvBackend for MemoryBackend {
         let key = key.to_string();
         Box::pin(async move {
             let mut data = self.data.write().unwrap();
-            if let Some(entry) = data.get_mut(&key) {
-                if !Self::is_expired(entry) {
-                    #[allow(clippy::cast_sign_loss)]
-                    let expires_at = Instant::now() + Duration::from_secs(seconds as u64);
-                    entry.expires_at = Some(expires_at);
-                    return Ok(true);
-                }
+            if let Some(entry) = data.get_mut(&key)
+                && !Self::is_expired(entry)
+            {
+                #[allow(clippy::cast_sign_loss)]
+                let expires_at = Instant::now() + Duration::from_secs(seconds as u64);
+                entry.expires_at = Some(expires_at);
+                return Ok(true);
             }
             Ok(false)
         })
@@ -572,12 +572,12 @@ impl RedbBackend {
     /// Create a new redb backend at the given path.
     pub fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         // Create parent directories if they don't exist
-        if let Some(parent) = path.as_ref().parent() {
-            if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    Error::Config(format!("Failed to create database directory: {e}"))
-                })?;
-            }
+        if let Some(parent) = path.as_ref().parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                Error::Config(format!("Failed to create database directory: {e}"))
+            })?;
         }
 
         let db = Database::create(path)

@@ -144,10 +144,10 @@ pub fn init_with_otlp(config: &OtlpConfig) -> Result<(), OtlpError> {
 ///
 /// Call this before application exit to ensure all spans are exported.
 pub fn shutdown() {
-    if let Some(provider) = TRACER_PROVIDER.get() {
-        if let Err(e) = provider.shutdown() {
-            tracing::warn!("Failed to shutdown tracer provider: {e}");
-        }
+    if let Some(provider) = TRACER_PROVIDER.get()
+        && let Err(e) = provider.shutdown()
+    {
+        tracing::warn!("Failed to shutdown tracer provider: {e}");
     }
 }
 
