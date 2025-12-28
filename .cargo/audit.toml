@@ -6,7 +6,10 @@
 # These are not security vulnerabilities, just maintenance status warnings
 ignore = [
     # rustls-pemfile is unmaintained but not vulnerable
-    # It's a transitive dependency from lapin -> tcp-stream -> rustls-native-certs
-    # Upstream needs to migrate to rustls-pki-types
+    # Transitive dep: lapin -> tcp-stream -> rustls-native-certs
     "RUSTSEC-2025-0134",
+
+    # instant is unmaintained (use web-time instead)
+    # Transitive dep: lapin -> async-reactor-trait -> async-io -> futures-lite -> fastrand -> instant
+    "RUSTSEC-2024-0384",
 ]
