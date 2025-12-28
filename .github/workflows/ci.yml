@@ -52,13 +52,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
 
-      # Test default features (no queue on Windows)
-      - name: Test (default features)
+      # Test all features (Linux/macOS only - queue requires external deps)
+      - name: Test (all features)
+        if: runner.os != 'Windows'
         run: cargo test --all-features
         env:
           RUST_LOG: debug
 
-      # Test musl feature set
+      # Test default features (Windows - no queue feature available)
+      - name: Test (default features)
+        if: runner.os == 'Windows'
+        run: cargo test
+        env:
+          RUST_LOG: debug
+
+      # Test musl feature set (all platforms)
       - name: Test (musl features)
         run: cargo test --no-default-features --features musl
         env:
