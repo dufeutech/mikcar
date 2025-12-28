@@ -12,6 +12,9 @@
 
 use crate::{Error, HealthCheck, HealthResult, Result, Sidecar};
 
+#[cfg(feature = "kv")]
+use redb::ReadableDatabase;
+
 use axum::{
     Json, Router,
     body::Bytes,
