@@ -2,8 +2,7 @@
 # https://rustsec.org/
 
 [advisories]
-# Ignore unmaintained crate warnings that come from upstream dependencies
-# These are not security vulnerabilities, just maintenance status warnings
+# Ignore advisories that come from upstream dependencies with no fix available
 ignore = [
     # rustls-pemfile is unmaintained but not vulnerable
     # Transitive dep: lapin -> tcp-stream -> rustls-native-certs
@@ -12,4 +11,10 @@ ignore = [
     # instant is unmaintained (use web-time instead)
     # Transitive dep: lapin -> async-reactor-trait -> async-io -> futures-lite -> fastrand -> instant
     "RUSTSEC-2024-0384",
+
+    # rsa: Marvin Attack timing sidechannel (medium severity)
+    # Transitive dep: sqlx -> sqlx-mysql -> rsa
+    # No fix available yet - sqlx needs to update their MySQL driver
+    # Note: mikcar uses Postgres/SQLite, not MySQL, so this doesn't affect us
+    "RUSTSEC-2023-0071",
 ]

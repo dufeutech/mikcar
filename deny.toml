@@ -13,6 +13,11 @@ ignore = [
     # instant is unmaintained (use web-time instead)
     # Transitive dep: lapin -> async-reactor-trait -> async-io -> futures-lite -> fastrand -> instant
     "RUSTSEC-2024-0384",
+
+    # rsa: Marvin Attack timing sidechannel (medium severity)
+    # Transitive dep: sqlx -> sqlx-mysql -> rsa
+    # No fix available - mikcar uses Postgres/SQLite, not MySQL
+    "RUSTSEC-2023-0071",
 ]
 
 [licenses]
