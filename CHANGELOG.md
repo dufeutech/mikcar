@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/dufeut/mikcar/compare/mikcar-v0.1.0...mikcar-v0.2.0) (2025-12-28)
+
+
+### Features
+
+* add core library infrastructure ([0d966cb](https://github.com/dufeut/mikcar/commit/0d966cbd36f20010a1255ecbb7b63b36bd03d500))
+* add sidecar services ([7b30586](https://github.com/dufeut/mikcar/commit/7b305863697eda08fd56ddf922fa9aa48b353283))
+
+
+### Bug Fixes
+
+* **ci:** add 0BSD and CDLA-Permissive-2.0 licenses ([9a79782](https://github.com/dufeut/mikcar/commit/9a79782ab04208ece42375dae01d509cf6014297))
+* **ci:** add more advisory ignores and license clarifications ([ba3834c](https://github.com/dufeut/mikcar/commit/ba3834c05255c0b67e9ca72b389aa642e5109483))
+* **ci:** configure security audit to ignore unmaintained advisories ([4d6bad6](https://github.com/dufeut/mikcar/commit/4d6bad6fa96a8a741dfb6c5f932c64bf7bfde2a7))
+* **ci:** ignore RSA timing sidechannel advisory ([a4347e7](https://github.com/dufeut/mikcar/commit/a4347e7de24f84299754952692084d8abdd1a9e1))
+* **ci:** move use statements to function top and pin cargo-machete ([209f54d](https://github.com/dufeut/mikcar/commit/209f54d1d8888deacf1dbbb1ad6928771265f2d1))
+* **ci:** resolve clippy warnings and test feature gates ([652881d](https://github.com/dufeut/mikcar/commit/652881d5dd60ba319031aa5204d852c3f3b41b86))
+* **ci:** skip queue feature on Windows ([e04a09b](https://github.com/dufeut/mikcar/commit/e04a09bd92de61af4ce7a43bb62b59d55dfa6d1a))
+* **ci:** use --locked flag for cargo-machete install ([cd92074](https://github.com/dufeut/mikcar/commit/cd920743d285952ff5dc44d9becdf270889459d7))
+* resolve CI failures (formatting and clippy warnings) ([08ab354](https://github.com/dufeut/mikcar/commit/08ab354627f93a2a470976371eaa041f82dd4da6))
+
 ## [0.1.0] - 2025-12-27
 
 ### Added
