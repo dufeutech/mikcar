@@ -1,0 +1,76 @@
+# mikcar - Full-featured variant with queue support
+# Uses glibc + distroless for queue backends (Redis, RabbitMQ, SQS)
+#
+# Build: docker build -f Dockerfile.all -t mikcar:all .
+# Size: ~50MB (vs ~20MB for scratch variant)
+#
+# All features included:
+#   - storage: S3, GCS, Azure, local filesystem
+#   - kv: Embedded redb key-value store
+#   - sql: Postgres, SQLite with JS scripting
+#   - queue: Redis Streams, RabbitMQ, SQS, GCP Pub/Sub
+#   - secrets: Vault, AWS Secrets Manager, GCP Secret Manager
+#   - email: SMTP (works with any provider)
+
+# =============================================================================
+# Stage 1: Build with glibc (required for queue backends)
+# =============================================================================
+FROM rust:1.91-slim-bookworm AS builder
+
+# Install build dependencies (minimal set)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    cmake \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy manifests first for layer caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy src for dependency caching
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs && echo "pub fn dummy() {}" > src/lib.rs
+
+# Build dependencies only (cached layer)
+RUN cargo build --release --features all 2>/dev/null || true
+
+# Copy actual source
+COPY src ./src
+
+# Touch to invalidate dummy
+RUN touch src/main.rs src/lib.rs
+
+# Build with all features
+RUN cargo build --release --features all
+
+# Strip the binary
+RUN strip /app/target/release/mikcar
+
+# Check binary size
+RUN ls -lh /app/target/release/mikcar
+
+# =============================================================================
+# Stage 2: Minimal glibc runtime (distroless)
+# =============================================================================
+FROM gcr.io/distroless/cc-debian12:nonroot
+
+# Copy CA certificates
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy the binary
+COPY --from=builder /app/target/release/mikcar /mikcar
+
+# Default environment
+ENV PORT=3001
+ENV RUST_LOG=info,mikcar=debug
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+EXPOSE 3001
+
+# Run as nonroot user (uid 65532)
+USER nonroot
+
+ENTRYPOINT ["/mikcar"]
+CMD ["--all"]

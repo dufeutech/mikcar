@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-release:
+    name: Build Release
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # Linux x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+
+          # macOS Intel
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+
+          # macOS Apple Silicon
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.85'
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry/index
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry/cache
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-index-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-build-target-
+
+      - name: Build mikcar
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package mikcar (Unix)
+        if: matrix.archive_ext == 'tar.gz'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf mikcar-${{ needs.release-please.outputs.version }}-${{ matrix.target }}.tar.gz mikcar
+          mv mikcar-*.tar.gz ../../../
+        shell: bash
+
+      - name: Package mikcar (Windows)
+        if: matrix.archive_ext == 'zip'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path mikcar.exe -DestinationPath mikcar-${{ needs.release-please.outputs.version }}-${{ matrix.target }}.zip
+          Move-Item mikcar-*.zip ../../../
+        shell: pwsh
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: ./mikcar-${{ needs.release-please.outputs.version }}-${{ matrix.target }}.${{ matrix.archive_ext }}

@@ -1,0 +1,159 @@
+# mikcar development and testing stack
+# Run: docker compose up -d
+# Stop: docker compose down
+#
+# Services:
+#   - minio:9000      S3-compatible storage (console: 9001)
+#   - redis:6379      Key-value store + queue backend
+#   - postgres:5432   SQL database
+#   - rabbitmq:5672   Message queue (management: 15672)
+#   - localstack:4566 AWS services emulator (SQS, SES)
+#   - mailpit:1025    Fake SMTP server (UI: 8025)
+#   - jaeger:16686    Distributed tracing UI (OTLP: 4317)
+
+services:
+  # ===========================================
+  # Storage Backend
+  # ===========================================
+
+  minio:
+    image: minio/minio:latest
+    container_name: mikcar-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Key-Value Store
+  # ===========================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: mikcar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # SQL Database
+  # ===========================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mikcar-postgres
+    environment:
+      POSTGRES_USER: mikcar
+      POSTGRES_PASSWORD: mikcar
+      POSTGRES_DB: mikcar
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mikcar"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Message Queue
+  # ===========================================
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mikcar-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # AWS Emulation (SQS, SES)
+  # ===========================================
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: mikcar-localstack
+    ports:
+      - "4566:4566"    # LocalStack Gateway
+    environment:
+      SERVICES: sqs,ses
+      DEBUG: 0
+      EAGER_SERVICE_LOADING: 1
+    volumes:
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Email Testing
+  # ===========================================
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mikcar-mailpit
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # ===========================================
+  # Distributed Tracing
+  # ===========================================
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: mikcar-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:14269/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  minio-data:
+  redis-data:
+  postgres-data:
+  rabbitmq-data:
+  localstack-data:
+
+networks:
+  default:
+    name: mikcar-network

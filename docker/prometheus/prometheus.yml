@@ -1,0 +1,24 @@
+# Prometheus configuration for mikrozen-host
+# Scrapes metrics from mik and mikcar
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Mik WASM host (port 3000)
+  - job_name: 'mik'
+    static_configs:
+      - targets: ['mik:3000']
+    metrics_path: /metrics
+
+  # Mikcar sidecar services (port 3001)
+  - job_name: 'mikcar'
+    static_configs:
+      - targets: ['mikcar:3001']
+    metrics_path: /health
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
