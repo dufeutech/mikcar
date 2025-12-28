@@ -59,15 +59,16 @@ jobs:
         env:
           RUST_LOG: debug
 
-      # Test default features (Windows - no queue feature available)
-      - name: Test (default features)
+      # Test without sql feature on Windows (rquickjs has linker issues in CI)
+      - name: Test (default features without sql)
         if: runner.os == 'Windows'
-        run: cargo test
+        run: cargo test --no-default-features --features storage,kv,secrets,email
         env:
           RUST_LOG: debug
 
-      # Test musl feature set (all platforms)
+      # Test musl feature set (Linux/macOS only - rquickjs linker issues on Windows)
       - name: Test (musl features)
+        if: runner.os != 'Windows'
         run: cargo test --no-default-features --features musl
         env:
           RUST_LOG: debug
@@ -168,8 +169,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
 
+      # Build with all default features (Linux/macOS)
       - name: Build (release)
+        if: runner.os != 'Windows'
         run: cargo build --release
+
+      # Build without sql feature on Windows (rquickjs linker issues in CI)
+      - name: Build (release, no sql)
+        if: runner.os == 'Windows'
+        run: cargo build --release --no-default-features --features storage,kv,secrets,email
 
   msrv:
     name: Check MSRV (1.85)
