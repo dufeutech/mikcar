@@ -139,8 +139,8 @@ tower = { version = "0.5", features = ["util"] }  # For ServiceExt in tests
 # Note: SQS/GCP excluded - pull in heavy AWS/GCP SDKs
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 omniqueue = { version = "0.3", default-features = false, features = ["redis", "rabbitmq"], optional = true }
-redis = { version = "1.0", features = ["tokio-comp"], optional = true }
-lapin = { version = "3.7", optional = true }
+redis = { version = "0.27", features = ["tokio-comp"], optional = true }  # Must match omniqueue 0.3's redis version
+lapin = { version = "2.5", optional = true }  # Must match omniqueue 0.3's lapin version (lapin 3.x not released in omniqueue yet)
 
 # =============================================================================
 # Release Profile - Optimized for production
