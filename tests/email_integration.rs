@@ -10,6 +10,9 @@
 //! cargo test --test email_integration -- --ignored
 //! ```
 
+// Skip on Windows CI - rquickjs has linker issues and cargo test compiles all test crates
+#![cfg(not(target_os = "windows"))]
+
 use std::time::Duration;
 
 /// Helper to check if Mailpit is available
