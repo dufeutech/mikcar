@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1](https://github.com/dufeut/mikcar/compare/mikcar-v0.1.0...mikcar-v0.1.1) (2025-12-28)
+
+
+### Bug Fixes
+
+* allow OpenSSL license for aws-lc-sys dependency ([1fb39e1](https://github.com/dufeut/mikcar/commit/1fb39e1d8f6f1decc3e4cae39be3c80c1004a44c))
+* revert redis and lapin to versions compatible with omniqueue 0.3 ([a20723e](https://github.com/dufeut/mikcar/commit/a20723e7414060744247a5c90b28c9e39a2e4dc1))
+* update dependencies to latest versions ([e1c245f](https://github.com/dufeut/mikcar/commit/e1c245ffecf379acf99b1bde553eb02849178e5a))
+
 ## 0.1.0 (2025-12-28)
 
 
