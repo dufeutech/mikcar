@@ -197,13 +197,13 @@ impl QueueService {
 
         #[cfg(not(target_os = "windows"))]
         {
-            Self::from_omniqueue_url(url).await
+            Self::from_omniqueue_url(url)
         }
     }
 
     /// Create omniqueue-based backend from URL (Linux/macOS only).
     #[cfg(not(target_os = "windows"))]
-    async fn from_omniqueue_url(url: &str) -> Result<Self> {
+    fn from_omniqueue_url(url: &str) -> Result<Self> {
         let backend_type = if url.starts_with("redis://") {
             tracing::info!(url = %url, "Configuring Redis queue backend");
             OmniqueueType::Redis {
@@ -280,6 +280,7 @@ impl QueueService {
         queue_name: &str,
         group_name: &str,
     ) -> Result<()> {
+        #![allow(unused_imports)]
         use redis::AsyncCommands;
 
         let client = redis::Client::open(dsn)
@@ -394,17 +395,22 @@ impl QueueService {
             OmniqueueType::RabbitMq { uri } => {
                 // Auto-create queue before first use
                 Self::ensure_rabbitmq_queue(uri, queue_name).await?;
+                use lapin::{
+                    BasicProperties, ConnectionProperties,
+                    options::{BasicConsumeOptions, BasicPublishOptions},
+                    types::FieldTable,
+                };
                 let config = RabbitMqConfig {
                     uri: uri.clone(),
-                    connection_properties: Default::default(),
-                    publish_exchange: "".to_string(),
+                    connection_properties: ConnectionProperties::default(),
+                    publish_exchange: String::new(),
                     publish_routing_key: queue_name.to_string(),
-                    publish_options: Default::default(),
-                    publish_properties: Default::default(),
+                    publish_options: BasicPublishOptions::default(),
+                    publish_properties: BasicProperties::default(),
                     consume_queue: queue_name.to_string(),
                     consumer_tag: format!("mikcar-{}", uuid::Uuid::new_v4()),
-                    consume_options: Default::default(),
-                    consume_arguments: Default::default(),
+                    consume_options: BasicConsumeOptions::default(),
+                    consume_arguments: FieldTable::default(),
                     consume_prefetch_count: Some(10),
                     requeue_on_nack: true,
                 };
@@ -463,17 +469,22 @@ impl QueueService {
                     .map_err(|e| Error::Internal(format!("Failed to create Redis consumer: {e}")))?
             }
             OmniqueueType::RabbitMq { uri } => {
+                use lapin::{
+                    BasicProperties, ConnectionProperties,
+                    options::{BasicConsumeOptions, BasicPublishOptions},
+                    types::FieldTable,
+                };
                 let config = RabbitMqConfig {
                     uri: uri.clone(),
-                    connection_properties: Default::default(),
-                    publish_exchange: "".to_string(),
+                    connection_properties: ConnectionProperties::default(),
+                    publish_exchange: String::new(),
                     publish_routing_key: queue_name.to_string(),
-                    publish_options: Default::default(),
-                    publish_properties: Default::default(),
+                    publish_options: BasicPublishOptions::default(),
+                    publish_properties: BasicProperties::default(),
                     consume_queue: queue_name.to_string(),
                     consumer_tag: format!("mikcar-{}", uuid::Uuid::new_v4()),
-                    consume_options: Default::default(),
-                    consume_arguments: Default::default(),
+                    consume_options: BasicConsumeOptions::default(),
+                    consume_arguments: FieldTable::default(),
                     consume_prefetch_count: Some(10),
                     requeue_on_nack: true,
                 };
@@ -798,10 +809,7 @@ async fn pop_from_queue(
                 Ok(Ok(delivery)) => {
                     let payload: serde_json::Value = delivery
                         .payload_serde_json()
-                        .unwrap_or_else(|_| {
-                            // Fallback if deserialization fails
-                            None
-                        })
+                        .unwrap_or(None)
                         .unwrap_or_else(|| {
                             // Fallback for None/missing payload
                             serde_json::json!({

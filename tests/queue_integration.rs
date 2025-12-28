@@ -51,7 +51,7 @@ async fn is_localstack_available() -> bool {
 // omniqueue-based tests (Linux/macOS only)
 // ============================================================================
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), feature = "queue"))]
 mod redis_queue {
     use super::*;
     use mikcar::queue::QueueService;
@@ -127,7 +127,7 @@ mod redis_queue {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), feature = "queue"))]
 mod rabbitmq_queue {
     use super::*;
     use mikcar::queue::QueueService;
@@ -201,7 +201,7 @@ mod rabbitmq_queue {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), feature = "queue"))]
 mod sqs_queue {
     use super::*;
     use mikcar::queue::QueueService;
