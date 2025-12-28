@@ -15,7 +15,7 @@
 # =============================================================================
 # Stage 1: Build with glibc (required for queue backends)
 # =============================================================================
-FROM rust:1.91-slim-bookworm AS builder
+FROM rust:1.89-slim-bookworm AS builder
 
 # Install build dependencies (minimal set)
 RUN apt-get update && apt-get install -y --no-install-recommends \

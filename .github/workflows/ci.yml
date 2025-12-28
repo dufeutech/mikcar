@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: ['1.85']
+        rust: ['1.89']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.85'
+          toolchain: '1.89'
           components: rustfmt, clippy
 
       - name: Cache cargo registry
@@ -124,7 +124,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.85'
+          toolchain: '1.89'
           components: rustfmt
 
       - name: Check formatting
@@ -136,7 +136,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: ['1.85']
+        rust: ['1.89']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -181,11 +181,11 @@ jobs:
         run: cargo build --release --no-default-features --features storage,kv,secrets,email
 
   msrv:
-    name: Check MSRV (1.85)
+    name: Check MSRV (1.89)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.89
       - name: Check mikcar
         run: cargo check --all-features
 
@@ -215,7 +215,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.89
       - uses: taiki-e/install-action@cargo-tarpaulin
       - name: Generate coverage
         run: cargo tarpaulin --out xml --skip-clean --all-features
@@ -229,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.89
       - name: Build docs
         run: cargo doc --all-features --no-deps
         env:
@@ -240,7 +240,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.89
       - name: Install cargo-machete
         run: cargo install cargo-machete@0.7.0 --locked
       - name: Check for unused dependencies

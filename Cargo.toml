@@ -11,7 +11,7 @@ authors = ["mikrozen contributors"]
 keywords = ["sidecar", "microservices", "http", "storage"]
 categories = ["web-programming::http-server", "database"]
 readme = "README.md"
-rust-version = "1.85"
+rust-version = "1.89"
 
 [[bin]]
 name = "mikcar"
