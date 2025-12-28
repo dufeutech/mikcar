@@ -38,6 +38,7 @@ allow = [
     "CC0-1.0",
     "BSL-1.0",
     "CDLA-Permissive-2.0",
+    "OpenSSL",  # aws-lc-sys uses this (rustls crypto backend on glibc Linux)
 ]
 confidence-threshold = 0.8
 
