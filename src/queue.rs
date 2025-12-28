@@ -358,6 +358,9 @@ impl QueueService {
         backend: &OmniqueueBackend,
         queue_name: &str,
     ) -> Result<Arc<omniqueue::DynProducer>> {
+        use lapin::options::{BasicConsumeOptions, BasicPublishOptions};
+        use lapin::types::FieldTable;
+        use lapin::{BasicProperties, ConnectionProperties};
         use omniqueue::backends::rabbitmq::RabbitMqConfig;
         use omniqueue::backends::redis::RedisConfig;
         use omniqueue::backends::{RabbitMqBackend, RedisBackend};
@@ -395,11 +398,6 @@ impl QueueService {
             OmniqueueType::RabbitMq { uri } => {
                 // Auto-create queue before first use
                 Self::ensure_rabbitmq_queue(uri, queue_name).await?;
-                use lapin::{
-                    BasicProperties, ConnectionProperties,
-                    options::{BasicConsumeOptions, BasicPublishOptions},
-                    types::FieldTable,
-                };
                 let config = RabbitMqConfig {
                     uri: uri.clone(),
                     connection_properties: ConnectionProperties::default(),
@@ -436,6 +434,9 @@ impl QueueService {
         backend: &OmniqueueBackend,
         queue_name: &str,
     ) -> Result<Arc<Mutex<omniqueue::DynConsumer>>> {
+        use lapin::options::{BasicConsumeOptions, BasicPublishOptions};
+        use lapin::types::FieldTable;
+        use lapin::{BasicProperties, ConnectionProperties};
         use omniqueue::backends::rabbitmq::RabbitMqConfig;
         use omniqueue::backends::redis::RedisConfig;
         use omniqueue::backends::{RabbitMqBackend, RedisBackend};
@@ -469,11 +470,6 @@ impl QueueService {
                     .map_err(|e| Error::Internal(format!("Failed to create Redis consumer: {e}")))?
             }
             OmniqueueType::RabbitMq { uri } => {
-                use lapin::{
-                    BasicProperties, ConnectionProperties,
-                    options::{BasicConsumeOptions, BasicPublishOptions},
-                    types::FieldTable,
-                };
                 let config = RabbitMqConfig {
                     uri: uri.clone(),
                     connection_properties: ConnectionProperties::default(),
