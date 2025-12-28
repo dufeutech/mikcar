@@ -1,0 +1,153 @@
+[package]
+name = "mikcar"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Sidecar infrastructure services for mik (storage, kv, sql, queue)"
+repository = "https://github.com/dufeut/mikcar"
+homepage = "https://github.com/dufeut/mikcar"
+documentation = "https://docs.rs/mikcar"
+authors = ["mikrozen contributors"]
+keywords = ["sidecar", "microservices", "http", "storage"]
+categories = ["web-programming::http-server", "database"]
+readme = "README.md"
+rust-version = "1.85"
+
+[[bin]]
+name = "mikcar"
+path = "src/main.rs"
+
+[lib]
+name = "mikcar"
+path = "src/lib.rs"
+
+[features]
+# Default: all self-contained services (no external dependencies required)
+default = ["storage", "kv", "sql", "secrets", "email"]
+# Individual services
+storage = ["dep:object_store"]
+kv = ["dep:redb"]  # Embedded key-value store (pure Rust)
+sql = ["dep:sqlx", "dep:rquickjs"]
+queue = ["dep:omniqueue", "dep:redis", "dep:lapin"]  # External queue backends (Redis, RabbitMQ) - Linux/macOS only, opt-in
+secrets = ["dep:async-trait", "dep:reqwest", "dep:hex", "dep:base64", "dep:sha2", "dep:hmac"]  # Secrets (HTTP-only: Vault, AWS SM, GCP SM)
+# Email service (SMTP only - works with any provider)
+email = ["email-smtp"]
+email-smtp = ["dep:lettre", "dep:async-trait"]
+# All services including queue (requires external services)
+all = ["storage", "kv", "sql", "queue", "secrets", "email"]
+# Musl-compatible subset (same as default, for static builds)
+musl = ["storage", "kv", "sql", "secrets", "email"]
+# OpenTelemetry OTLP export for distributed tracing (Jaeger, Tempo, etc.)
+otlp = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+]
+
+[dependencies]
+# Fast allocator for musl builds (fixes multi-core performance)
+mimalloc = { version = "0.1", default-features = false }
+
+# HTTP framework (axum ecosystem)
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = [
+    "cors",
+    "compression-gzip",
+    "trace",
+    "timeout",
+    "limit",
+] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# OpenTelemetry (optional - otlp feature)
+opentelemetry = { version = "0.30", optional = true }
+opentelemetry_sdk = { version = "0.30", features = ["rt-tokio"], optional = true }
+opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic"], optional = true }
+tracing-opentelemetry = { version = "0.31", optional = true }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Utilities
+bytes = "1.5"
+futures = "0.3"
+url = "2.5"
+uuid = { version = "1.11", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Security
+subtle = "2.6"  # Constant-time comparison for auth tokens
+
+# === Optional service dependencies ===
+
+# Storage (S3, GCS, Azure, Local filesystem)
+object_store = { version = "0.13", features = ["aws"], optional = true }
+
+# Key-Value (Embedded redb) - pure Rust, no C dependencies
+redb = { version = "2.4", optional = true }
+
+# SQL (Postgres, MySQL, SQLite)
+# Using runtime-tokio-rustls for musl/static build compatibility
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "sqlite",
+    "json",
+    "bigdecimal",
+    "uuid",
+    "chrono",
+], optional = true }
+
+# JavaScript runtime for SQL script execution
+# Note: Using pre-built bindings (no bindgen) for Windows compatibility
+rquickjs = { version = "0.9", features = ["classes"], optional = true }
+
+# Secrets manager backends (HTTP-only, no SDKs)
+async-trait = { version = "0.1", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+hex = { version = "0.4", optional = true }
+base64 = { version = "0.22", optional = true }
+
+# Crypto for AWS SigV4 signing (much lighter than full SDK)
+sha2 = { version = "0.10", optional = true }
+hmac = { version = "0.12", optional = true }
+
+# Email (SMTP via lettre - works with any provider)
+lettre = { version = "0.11", default-features = false, features = ["tokio1", "tokio1-rustls-tls", "smtp-transport", "builder"], optional = true }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3.24.0"
+tower = { version = "0.5", features = ["util"] }  # For ServiceExt in tests
+
+# Linux/macOS only dependencies (cmake required)
+# - omniqueue: Queue backends (Redis, RabbitMQ)
+# Note: SQS/GCP excluded - pull in heavy AWS/GCP SDKs
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+omniqueue = { version = "0.3", default-features = false, features = ["redis", "rabbitmq"], optional = true }
+redis = { version = "0.32", features = ["tokio-comp"], optional = true }
+lapin = { version = "2.5", optional = true }
+
+# =============================================================================
+# Release Profile - Optimized for production
+# =============================================================================
+
+[profile.release]
+lto = true           # Link-time optimization for smaller, faster binaries
+opt-level = 3        # Maximum optimization
+codegen-units = 1    # Better optimization at cost of compile time
+strip = true         # Strip symbols for smaller binary

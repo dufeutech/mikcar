@@ -1,0 +1,3 @@
+[build]
+# Limit parallel jobs to prevent stack overflow during linking on Windows
+jobs = 2
