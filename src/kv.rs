@@ -575,9 +575,8 @@ impl RedbBackend {
         if let Some(parent) = path.as_ref().parent()
             && !parent.as_os_str().is_empty()
         {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                Error::Config(format!("Failed to create database directory: {e}"))
-            })?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| Error::Config(format!("Failed to create database directory: {e}")))?;
         }
 
         let db = Database::create(path)
