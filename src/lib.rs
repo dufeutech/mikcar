@@ -4,25 +4,22 @@
 
 // Safety: No unsafe code allowed in this crate
 #![forbid(unsafe_code)]
-
 // Correctness: Must handle all fallible operations
 #![deny(unused_must_use)]
-
 // Quality: Pedantic but pragmatic
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(missing_debug_implementations)]
 #![warn(rust_2018_idioms)]
 #![warn(unreachable_pub)]
-
 // Allowed with documented reasons
-#![allow(clippy::missing_errors_doc)]      // Error returns self-documenting via type
-#![allow(clippy::missing_panics_doc)]      // Panics documented in main entry points
+#![allow(clippy::missing_errors_doc)] // Error returns self-documenting via type
+#![allow(clippy::missing_panics_doc)] // Panics documented in main entry points
 #![allow(clippy::module_name_repetitions)] // e.g., runtime::RuntimeConfig is clearer
-#![allow(clippy::doc_markdown)]            // Too many false positives in code docs
-#![allow(clippy::must_use_candidate)]      // Not all returned values need annotation
+#![allow(clippy::doc_markdown)] // Too many false positives in code docs
+#![allow(clippy::must_use_candidate)] // Not all returned values need annotation
 #![allow(clippy::cast_possible_truncation)] // Intentional in HTTP size calculations
-#![allow(clippy::cast_sign_loss)]          // Intentional in size calculations
+#![allow(clippy::cast_sign_loss)] // Intentional in size calculations
 
 //! # mikcar - Sidecar Infrastructure for mikrozen
 //!

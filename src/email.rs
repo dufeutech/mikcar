@@ -5,13 +5,7 @@
 
 use crate::{Error, HealthCheck, HealthResult, Result, Sidecar};
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::post,
-    Json, Router,
-};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::post};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -171,11 +165,11 @@ impl EmailBackend for MemoryBackend {
 
 #[cfg(feature = "email-smtp")]
 mod smtp {
-    use super::{info, Email, EmailBackend, EmailResult, Error, Result};
+    use super::{Email, EmailBackend, EmailResult, Error, Result, info};
     use lettre::{
-        message::{header::ContentType, Mailbox, MultiPart, SinglePart},
-        transport::smtp::authentication::Credentials,
         AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+        message::{Mailbox, MultiPart, SinglePart, header::ContentType},
+        transport::smtp::authentication::Credentials,
     };
 
     /// SMTP email backend using `lettre`.
@@ -201,7 +195,9 @@ mod smtp {
                 .map_err(|e| Error::Config(format!("Invalid SMTP URL: {e}")))?;
 
             let host = parsed.host_str().unwrap_or("localhost");
-            let port = parsed.port().unwrap_or(if parsed.scheme() == "smtps" { 465 } else { 587 });
+            let port = parsed
+                .port()
+                .unwrap_or(if parsed.scheme() == "smtps" { 465 } else { 587 });
             let username = parsed.username();
             let password = parsed.password().unwrap_or("");
 
@@ -219,16 +215,20 @@ mod smtp {
                 if username.is_empty() {
                     builder.build()
                 } else {
-                    builder.credentials(Credentials::new(username.to_string(), password.to_string())).build()
+                    builder
+                        .credentials(Credentials::new(username.to_string(), password.to_string()))
+                        .build()
                 }
             } else if is_plain {
                 // Plain SMTP (no TLS) - for local testing like Mailpit
-                let builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
-                    .port(port);
+                let builder =
+                    AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host).port(port);
                 if username.is_empty() {
                     builder.build()
                 } else {
-                    builder.credentials(Credentials::new(username.to_string(), password.to_string())).build()
+                    builder
+                        .credentials(Credentials::new(username.to_string(), password.to_string()))
+                        .build()
                 }
             } else {
                 // STARTTLS (port 587)
@@ -238,42 +238,56 @@ mod smtp {
                 if username.is_empty() {
                     builder.build()
                 } else {
-                    builder.credentials(Credentials::new(username.to_string(), password.to_string())).build()
+                    builder
+                        .credentials(Credentials::new(username.to_string(), password.to_string()))
+                        .build()
                 }
             };
 
-            let mode = if parsed.scheme() == "smtps" { "TLS" } else if is_plain { "plain" } else { "STARTTLS" };
+            let mode = if parsed.scheme() == "smtps" {
+                "TLS"
+            } else if is_plain {
+                "plain"
+            } else {
+                "STARTTLS"
+            };
             info!(host = %host, port = %port, mode = %mode, "Connected to SMTP server");
 
             Ok(Self { transport })
         }
 
         fn build_message(email: &Email) -> Result<Message> {
-            let from: Mailbox = email.from.parse()
+            let from: Mailbox = email
+                .from
+                .parse()
                 .map_err(|e| Error::BadRequest(format!("Invalid from address: {e}")))?;
 
             let mut builder = Message::builder().from(from);
 
             for to in &email.to {
-                let mailbox: Mailbox = to.parse()
+                let mailbox: Mailbox = to
+                    .parse()
                     .map_err(|e| Error::BadRequest(format!("Invalid to address: {e}")))?;
                 builder = builder.to(mailbox);
             }
 
             for cc in &email.cc {
-                let mailbox: Mailbox = cc.parse()
+                let mailbox: Mailbox = cc
+                    .parse()
                     .map_err(|e| Error::BadRequest(format!("Invalid cc address: {e}")))?;
                 builder = builder.cc(mailbox);
             }
 
             for bcc in &email.bcc {
-                let mailbox: Mailbox = bcc.parse()
+                let mailbox: Mailbox = bcc
+                    .parse()
                     .map_err(|e| Error::BadRequest(format!("Invalid bcc address: {e}")))?;
                 builder = builder.bcc(mailbox);
             }
 
             if let Some(ref reply_to) = email.reply_to {
-                let mailbox: Mailbox = reply_to.parse()
+                let mailbox: Mailbox = reply_to
+                    .parse()
                     .map_err(|e| Error::BadRequest(format!("Invalid reply-to address: {e}")))?;
                 builder = builder.reply_to(mailbox);
             }
@@ -282,27 +296,24 @@ mod smtp {
 
             // Build body
             let message = match (&email.text, &email.html) {
-                (Some(text), Some(html)) => {
-                    builder.multipart(
-                        MultiPart::alternative()
-                            .singlepart(SinglePart::builder()
+                (Some(text), Some(html)) => builder.multipart(
+                    MultiPart::alternative()
+                        .singlepart(
+                            SinglePart::builder()
                                 .header(ContentType::TEXT_PLAIN)
-                                .body(text.clone()))
-                            .singlepart(SinglePart::builder()
+                                .body(text.clone()),
+                        )
+                        .singlepart(
+                            SinglePart::builder()
                                 .header(ContentType::TEXT_HTML)
-                                .body(html.clone()))
-                    )
-                }
-                (Some(text), None) => {
-                    builder.body(text.clone())
-                }
-                (None, Some(html)) => {
-                    builder.header(ContentType::TEXT_HTML).body(html.clone())
-                }
-                (None, None) => {
-                    builder.body(String::new())
-                }
-            }.map_err(|e| Error::Internal(format!("Failed to build email: {e}")))?;
+                                .body(html.clone()),
+                        ),
+                ),
+                (Some(text), None) => builder.body(text.clone()),
+                (None, Some(html)) => builder.header(ContentType::TEXT_HTML).body(html.clone()),
+                (None, None) => builder.body(String::new()),
+            }
+            .map_err(|e| Error::Internal(format!("Failed to build email: {e}")))?;
 
             Ok(message)
         }
@@ -328,7 +339,9 @@ mod smtp {
         }
 
         async fn health(&self) -> Result<()> {
-            self.transport.test_connection().await
+            self.transport
+                .test_connection()
+                .await
                 .map_err(|e| Error::Internal(format!("SMTP health check failed: {e}")))?;
             Ok(())
         }
@@ -369,9 +382,8 @@ impl EmailService {
     /// Reads `EMAIL_URL` environment variable.
     #[cfg(feature = "email-smtp")]
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("EMAIL_URL").map_err(|_| {
-            Error::Config("EMAIL_URL environment variable not set".to_string())
-        })?;
+        let url = std::env::var("EMAIL_URL")
+            .map_err(|_| Error::Config("EMAIL_URL environment variable not set".to_string()))?;
 
         Self::from_url(&url)
     }

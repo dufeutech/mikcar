@@ -2,7 +2,7 @@
 //!
 //! Provides health check functionality with optional backend connectivity verification.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Serialize;
 use std::future::Future;
 use std::pin::Pin;
@@ -73,7 +73,10 @@ impl std::fmt::Debug for HealthCheck {
         f.debug_struct("HealthCheck")
             .field("name", &self.name)
             .field("sync_check", &self.sync_check.as_ref().map(|_| "<fn>"))
-            .field("async_check", &self.async_check.as_ref().map(|_| "<async fn>"))
+            .field(
+                "async_check",
+                &self.async_check.as_ref().map(|_| "<async fn>"),
+            )
             .field("timeout", &self.timeout)
             .finish()
     }
@@ -165,7 +168,11 @@ pub async fn health_handler(State(health): State<Arc<HealthCheck>>) -> impl Into
     let result = health.check_async().await;
 
     let response = HealthResponse {
-        status: if result.healthy { "healthy" } else { "unhealthy" },
+        status: if result.healthy {
+            "healthy"
+        } else {
+            "unhealthy"
+        },
         service: health.name.clone(),
         details: result.details,
     };

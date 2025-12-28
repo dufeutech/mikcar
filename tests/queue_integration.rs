@@ -335,8 +335,8 @@ mod sqs_queue {
 
 #[cfg(feature = "queue")]
 mod memory_queue {
-    use mikcar::queue::QueueService;
     use mikcar::Sidecar;
+    use mikcar::queue::QueueService;
 
     #[tokio::test]
     async fn test_memory_queue_push_pop() {

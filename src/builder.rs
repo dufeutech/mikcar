@@ -2,17 +2,17 @@
 //!
 //! Provides a fluent API for configuring and running sidecars.
 
-use crate::auth::{auth_middleware, TokenAuth};
+use crate::auth::{TokenAuth, auth_middleware};
 use crate::health::simple_health_handler;
 use crate::{Result, Sidecar};
 
 use axum::{
+    Router,
     body::Body,
     extract::DefaultBodyLimit,
-    http::{header::HeaderName, Method, Request, Response, StatusCode},
+    http::{Method, Request, Response, StatusCode, header::HeaderName},
     middleware::{self, Next},
     routing::get,
-    Router,
 };
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -167,11 +167,7 @@ impl CorsConfig {
             warn!("CORS configured with allow_any_origin - this is insecure for production");
             layer = layer.allow_origin(AllowOrigin::any());
         } else {
-            let origins: Vec<_> = self
-                .origins
-                .iter()
-                .filter_map(|o| o.parse().ok())
-                .collect();
+            let origins: Vec<_> = self.origins.iter().filter_map(|o| o.parse().ok()).collect();
             layer = layer.allow_origin(origins);
         }
 
@@ -405,7 +401,11 @@ impl SidecarBuilder {
 
         // Mount each sidecar at its path prefix
         for (prefix, sidecar) in sidecars {
-            info!(service = sidecar.name(), prefix = prefix, "Mounting service");
+            info!(
+                service = sidecar.name(),
+                prefix = prefix,
+                "Mounting service"
+            );
             app = app.nest(prefix, sidecar.router());
         }
 

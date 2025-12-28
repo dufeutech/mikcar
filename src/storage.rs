@@ -10,14 +10,14 @@
 use crate::{Error, Result, Sidecar};
 
 use axum::{
+    Json, Router,
     body::Bytes,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, head, put},
-    Json, Router,
 };
-use object_store::{aws::AmazonS3Builder, ObjectStore, ObjectStoreExt, PutPayload};
+use object_store::{ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder};
 use serde::{Deserialize, Serialize};
 use std::path::Path as StdPath;
 use std::sync::Arc;
@@ -100,9 +100,8 @@ impl StorageService {
     /// let storage = StorageService::from_env()?;
     /// ```
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("STORAGE_URL").map_err(|_| {
-            Error::Config("STORAGE_URL environment variable not set".to_string())
-        })?;
+        let url = std::env::var("STORAGE_URL")
+            .map_err(|_| Error::Config("STORAGE_URL environment variable not set".to_string()))?;
 
         Self::from_url(&url)
     }
@@ -130,9 +129,8 @@ impl StorageService {
     /// )?;
     /// ```
     pub fn from_url(url: &str) -> Result<Self> {
-        let parsed = url::Url::parse(url).map_err(|e| {
-            Error::Config(format!("Invalid STORAGE_URL: {e}"))
-        })?;
+        let parsed =
+            url::Url::parse(url).map_err(|e| Error::Config(format!("Invalid STORAGE_URL: {e}")))?;
 
         let store: Arc<dyn ObjectStore> = if parsed.scheme() == "s3" {
             // Use builder for S3 to properly configure credentials and disable IMDS
@@ -272,13 +270,10 @@ async fn get_object(
     validate_storage_path(&path)?;
     let location = object_store::path::Path::from(path.as_str());
 
-    let result = store
-        .get(&location)
-        .await
-        .map_err(|e| match e {
-            object_store::Error::NotFound { .. } => Error::NotFound(path.clone()),
-            e => Error::Storage(e),
-        })?;
+    let result = store.get(&location).await.map_err(|e| match e {
+        object_store::Error::NotFound { .. } => Error::NotFound(path.clone()),
+        e => Error::Storage(e),
+    })?;
 
     let bytes = result.bytes().await?;
 
@@ -297,10 +292,13 @@ async fn put_object(
     let payload = PutPayload::from_bytes(body);
     store.put(&location, payload).await?;
 
-    Ok((StatusCode::CREATED, Json(serde_json::json!({
-        "status": "created",
-        "path": path
-    }))))
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "status": "created",
+            "path": path
+        })),
+    ))
 }
 
 /// Delete object.
@@ -316,10 +314,13 @@ async fn delete_object(
         e => Error::Storage(e),
     })?;
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "status": "deleted",
-        "path": path
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "deleted",
+            "path": path
+        })),
+    ))
 }
 
 /// Check if object exists (HEAD request).
@@ -339,10 +340,7 @@ async fn head_object(
         StatusCode::OK,
         [
             ("x-object-size", meta.size.to_string()),
-            (
-                "x-last-modified",
-                meta.last_modified.to_rfc3339(),
-            ),
+            ("x-last-modified", meta.last_modified.to_rfc3339()),
         ],
     ))
 }
@@ -373,7 +371,9 @@ async fn list_objects_impl(
 ) -> Result<impl IntoResponse> {
     use futures::StreamExt;
 
-    let prefix_path = prefix.as_ref().map(|p| object_store::path::Path::from(p.as_str()));
+    let prefix_path = prefix
+        .as_ref()
+        .map(|p| object_store::path::Path::from(p.as_str()));
     let limit = query.limit.unwrap_or(1000);
 
     // Use offset for cursor-based pagination if provided

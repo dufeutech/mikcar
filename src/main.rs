@@ -127,7 +127,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if services.is_empty() {
-        eprintln!("Error: No services enabled. Use --storage, --kv, --sql, --queue, --secrets, or --all");
+        eprintln!(
+            "Error: No services enabled. Use --storage, --kv, --sql, --queue, --secrets, or --all"
+        );
         eprintln!("\nAvailable features (compile with):");
         eprintln!("  cargo build -p mikcar --features storage");
         eprintln!("  cargo build -p mikcar --features kv");
@@ -151,11 +153,11 @@ fn init_tracing(cli: &Cli) {
     // Try OTLP if feature is enabled and endpoint is set
     #[cfg(feature = "otlp")]
     if let Some(endpoint) = &cli.otlp_endpoint {
-        use mikcar::otlp::{init_with_otlp, OtlpConfig};
+        use mikcar::otlp::{OtlpConfig, init_with_otlp};
 
         let config = OtlpConfig::new(endpoint).with_service_name(&cli.service_name);
 
-        if let Err(e) = init_with_otlp(config) {
+        if let Err(e) = init_with_otlp(&config) {
             eprintln!("Warning: Failed to initialize OTLP tracing: {e}");
             eprintln!("Falling back to stdout logging");
             init_stdout_tracing();

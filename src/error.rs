@@ -112,11 +112,7 @@ impl IntoResponse for Error {
             }
             Error::Json(_) => {
                 tracing::warn!(error = %self, "JSON parsing error");
-                (
-                    StatusCode::BAD_REQUEST,
-                    "Invalid JSON format",
-                    "JSON_ERROR",
-                )
+                (StatusCode::BAD_REQUEST, "Invalid JSON format", "JSON_ERROR")
             }
         };
 

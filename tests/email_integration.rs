@@ -15,7 +15,12 @@ use std::time::Duration;
 /// Helper to check if Mailpit is available
 async fn is_mailpit_available() -> bool {
     let client = reqwest::Client::new();
-    match tokio::time::timeout(Duration::from_secs(2), client.get("http://localhost:8025/api/v1/messages").send()).await {
+    match tokio::time::timeout(
+        Duration::from_secs(2),
+        client.get("http://localhost:8025/api/v1/messages").send(),
+    )
+    .await
+    {
         Ok(Ok(resp)) => resp.status().is_success(),
         _ => false,
     }
@@ -29,8 +34,8 @@ mod smtp_email {
     use super::*;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
-    use mikcar::email::EmailService;
     use mikcar::Sidecar;
+    use mikcar::email::EmailService;
     use tower::ServiceExt;
 
     // Mailpit SMTP - no auth required
@@ -44,8 +49,8 @@ mod smtp_email {
             return;
         }
 
-        let service = EmailService::from_url(MAILPIT_URL)
-            .expect("Failed to create SMTP email service");
+        let service =
+            EmailService::from_url(MAILPIT_URL).expect("Failed to create SMTP email service");
 
         assert_eq!(service.name(), "email");
         println!("SMTP email service created successfully");
@@ -59,8 +64,8 @@ mod smtp_email {
             return;
         }
 
-        let service = EmailService::from_url(MAILPIT_URL)
-            .expect("Failed to create SMTP email service");
+        let service =
+            EmailService::from_url(MAILPIT_URL).expect("Failed to create SMTP email service");
 
         let router = service.router();
 
@@ -69,13 +74,15 @@ mod smtp_email {
             .method("POST")
             .uri("/send")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "from": "test@example.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test Email from mikcar",
                 "text": "This is a test email sent via Mailpit.",
                 "html": "<h1>Test</h1><p>This is a test email sent via Mailpit.</p>"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = router.clone().oneshot(send_request).await.unwrap();
@@ -102,9 +109,9 @@ mod smtp_email {
         let messages = mailpit_json["messages"].as_array().unwrap();
 
         // Find our test email
-        let found = messages.iter().any(|msg| {
-            msg["Subject"].as_str() == Some("Test Email from mikcar")
-        });
+        let found = messages
+            .iter()
+            .any(|msg| msg["Subject"].as_str() == Some("Test Email from mikcar"));
 
         assert!(found, "Test email not found in Mailpit");
         println!("Email verified in Mailpit inbox");
@@ -118,8 +125,8 @@ mod smtp_email {
             return;
         }
 
-        let service = EmailService::from_url(MAILPIT_URL)
-            .expect("Failed to create SMTP email service");
+        let service =
+            EmailService::from_url(MAILPIT_URL).expect("Failed to create SMTP email service");
 
         let router = service.router();
 
@@ -128,7 +135,8 @@ mod smtp_email {
             .method("POST")
             .uri("/send/batch")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "emails": [
                     {
                         "from": "batch@example.com",
@@ -143,7 +151,8 @@ mod smtp_email {
                         "text": "Second batch email"
                     }
                 ]
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = router.oneshot(batch_request).await.unwrap();
@@ -167,14 +176,14 @@ mod smtp_email {
 mod memory_email {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
-    use mikcar::email::EmailService;
     use mikcar::Sidecar;
+    use mikcar::email::EmailService;
     use tower::ServiceExt;
 
     #[tokio::test]
     async fn test_memory_email_send() {
-        let service = EmailService::from_url("memory://")
-            .expect("Failed to create in-memory email service");
+        let service =
+            EmailService::from_url("memory://").expect("Failed to create in-memory email service");
 
         let router = service.router();
 
@@ -183,12 +192,14 @@ mod memory_email {
             .method("POST")
             .uri("/send")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "from": "test@example.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test Email",
                 "text": "This is a test email."
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = router.clone().oneshot(send_request).await.unwrap();
@@ -205,8 +216,8 @@ mod memory_email {
 
     #[tokio::test]
     async fn test_memory_email_batch() {
-        let service = EmailService::from_url("memory://")
-            .expect("Failed to create in-memory email service");
+        let service =
+            EmailService::from_url("memory://").expect("Failed to create in-memory email service");
 
         let router = service.router();
 
@@ -215,7 +226,8 @@ mod memory_email {
             .method("POST")
             .uri("/send/batch")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "emails": [
                     {
                         "from": "test@example.com",
@@ -236,7 +248,8 @@ mod memory_email {
                         "text": "Third email"
                     }
                 ]
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = router.oneshot(batch_request).await.unwrap();
@@ -254,8 +267,8 @@ mod memory_email {
 
     #[tokio::test]
     async fn test_memory_email_with_all_fields() {
-        let service = EmailService::from_url("memory://")
-            .expect("Failed to create in-memory email service");
+        let service =
+            EmailService::from_url("memory://").expect("Failed to create in-memory email service");
 
         let router = service.router();
 
@@ -264,7 +277,8 @@ mod memory_email {
             .method("POST")
             .uri("/send")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "from": "sender@example.com",
                 "to": ["recipient1@example.com", "recipient2@example.com"],
                 "cc": ["cc@example.com"],
@@ -274,7 +288,8 @@ mod memory_email {
                 "html": "<h1>HTML Version</h1>",
                 "reply_to": "reply@example.com",
                 "headers": {"X-Custom-Header": "custom-value"}
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = router.oneshot(send_request).await.unwrap();

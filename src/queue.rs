@@ -42,12 +42,12 @@
 use crate::{Error, Result, Sidecar};
 
 use axum::{
+    Json, Router,
     body::Bytes,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -113,6 +113,14 @@ pub struct QueueService {
     backend: QueueBackend,
 }
 
+impl std::fmt::Debug for QueueService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QueueService")
+            .field("backend", &"<queue backend>")
+            .finish()
+    }
+}
+
 impl QueueService {
     /// Create a new in-memory queue service (for testing/development).
     #[must_use]
@@ -148,8 +156,7 @@ impl QueueService {
     /// let queue = QueueService::from_env().await?;
     /// ```
     pub async fn from_env() -> Result<Self> {
-        let url = std::env::var("QUEUE_URL")
-            .unwrap_or_else(|_| "memory://".to_string());
+        let url = std::env::var("QUEUE_URL").unwrap_or_else(|_| "memory://".to_string());
 
         Self::from_url(&url).await
     }
@@ -199,10 +206,14 @@ impl QueueService {
     async fn from_omniqueue_url(url: &str) -> Result<Self> {
         let backend_type = if url.starts_with("redis://") {
             tracing::info!(url = %url, "Configuring Redis queue backend");
-            OmniqueueType::Redis { dsn: url.to_string() }
+            OmniqueueType::Redis {
+                dsn: url.to_string(),
+            }
         } else if url.starts_with("amqp://") {
             tracing::info!(url = %url, "Configuring RabbitMQ queue backend");
-            OmniqueueType::RabbitMq { uri: url.to_string() }
+            OmniqueueType::RabbitMq {
+                uri: url.to_string(),
+            }
         } else {
             return Err(Error::Config(format!(
                 "Unknown queue backend: {url}. Supported: memory://, redis://, amqp://"
@@ -219,7 +230,11 @@ impl QueueService {
     }
 
     /// Get or create an in-memory topic queue.
-    async fn get_or_create_inmemory_topic(&self, topics: &Arc<Mutex<HashMap<String, InMemoryQueue>>>, topic: &str) -> Result<InMemoryQueue> {
+    async fn get_or_create_inmemory_topic(
+        &self,
+        topics: &Arc<Mutex<HashMap<String, InMemoryQueue>>>,
+        topic: &str,
+    ) -> Result<InMemoryQueue> {
         let mut topics = topics.lock().await;
 
         if let Some(queue) = topics.get(topic) {
@@ -237,7 +252,11 @@ impl QueueService {
     }
 
     /// Get or create an in-memory work queue.
-    async fn get_or_create_inmemory_queue(&self, queues: &Arc<Mutex<HashMap<String, InMemoryQueue>>>, name: &str) -> Result<InMemoryQueue> {
+    async fn get_or_create_inmemory_queue(
+        &self,
+        queues: &Arc<Mutex<HashMap<String, InMemoryQueue>>>,
+        name: &str,
+    ) -> Result<InMemoryQueue> {
         let mut queues = queues.lock().await;
 
         if let Some(queue) = queues.get(name) {
@@ -256,12 +275,18 @@ impl QueueService {
 
     /// Ensure Redis consumer group exists (creates stream + group if needed).
     #[cfg(not(target_os = "windows"))]
-    async fn ensure_redis_consumer_group(dsn: &str, queue_name: &str, group_name: &str) -> Result<()> {
+    async fn ensure_redis_consumer_group(
+        dsn: &str,
+        queue_name: &str,
+        group_name: &str,
+    ) -> Result<()> {
         use redis::AsyncCommands;
 
         let client = redis::Client::open(dsn)
             .map_err(|e| Error::Internal(format!("Redis connection error: {e}")))?;
-        let mut conn = client.get_multiplexed_async_connection().await
+        let mut conn = client
+            .get_multiplexed_async_connection()
+            .await
             .map_err(|e| Error::Internal(format!("Redis connection error: {e}")))?;
 
         // XGROUP CREATE <stream> <group> $ MKSTREAM
@@ -283,7 +308,9 @@ impl QueueService {
                 // Group already exists, that's fine
             }
             Err(e) => {
-                return Err(Error::Internal(format!("Failed to create consumer group: {e}")));
+                return Err(Error::Internal(format!(
+                    "Failed to create consumer group: {e}"
+                )));
             }
         }
 
@@ -293,27 +320,31 @@ impl QueueService {
     /// Ensure RabbitMQ queue exists (declares queue if needed).
     #[cfg(not(target_os = "windows"))]
     async fn ensure_rabbitmq_queue(uri: &str, queue_name: &str) -> Result<()> {
-        use lapin::{Connection, ConnectionProperties, options::QueueDeclareOptions, types::FieldTable};
+        use lapin::{
+            Connection, ConnectionProperties, options::QueueDeclareOptions, types::FieldTable,
+        };
 
         let conn = Connection::connect(uri, ConnectionProperties::default())
             .await
             .map_err(|e| Error::Internal(format!("RabbitMQ connection error: {e}")))?;
 
-        let channel = conn.create_channel()
+        let channel = conn
+            .create_channel()
             .await
             .map_err(|e| Error::Internal(format!("RabbitMQ channel error: {e}")))?;
 
         // Declare queue (creates if doesn't exist, idempotent if exists)
-        channel.queue_declare(
-            queue_name,
-            QueueDeclareOptions {
-                durable: true,
-                ..Default::default()
-            },
-            FieldTable::default(),
-        )
-        .await
-        .map_err(|e| Error::Internal(format!("Failed to declare RabbitMQ queue: {e}")))?;
+        channel
+            .queue_declare(
+                queue_name,
+                QueueDeclareOptions {
+                    durable: true,
+                    ..Default::default()
+                },
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|e| Error::Internal(format!("Failed to declare RabbitMQ queue: {e}")))?;
 
         tracing::info!(queue = %queue_name, "Ensured RabbitMQ queue exists");
         Ok(())
@@ -321,10 +352,14 @@ impl QueueService {
 
     /// Get or create an omniqueue producer for a queue name.
     #[cfg(not(target_os = "windows"))]
-    async fn get_or_create_producer(&self, backend: &OmniqueueBackend, queue_name: &str) -> Result<Arc<omniqueue::DynProducer>> {
-        use omniqueue::backends::{RedisBackend, RabbitMqBackend};
-        use omniqueue::backends::redis::RedisConfig;
+    async fn get_or_create_producer(
+        &self,
+        backend: &OmniqueueBackend,
+        queue_name: &str,
+    ) -> Result<Arc<omniqueue::DynProducer>> {
         use omniqueue::backends::rabbitmq::RabbitMqConfig;
+        use omniqueue::backends::redis::RedisConfig;
+        use omniqueue::backends::{RabbitMqBackend, RedisBackend};
 
         let mut producers = backend.producers.lock().await;
 
@@ -377,7 +412,9 @@ impl QueueService {
                     .make_dynamic()
                     .build_producer()
                     .await
-                    .map_err(|e| Error::Internal(format!("Failed to create RabbitMQ producer: {e}")))?
+                    .map_err(|e| {
+                        Error::Internal(format!("Failed to create RabbitMQ producer: {e}"))
+                    })?
             }
         };
 
@@ -388,10 +425,14 @@ impl QueueService {
 
     /// Get or create an omniqueue consumer for a queue name.
     #[cfg(not(target_os = "windows"))]
-    async fn get_or_create_consumer(&self, backend: &OmniqueueBackend, queue_name: &str) -> Result<Arc<Mutex<omniqueue::DynConsumer>>> {
-        use omniqueue::backends::{RedisBackend, RabbitMqBackend};
-        use omniqueue::backends::redis::RedisConfig;
+    async fn get_or_create_consumer(
+        &self,
+        backend: &OmniqueueBackend,
+        queue_name: &str,
+    ) -> Result<Arc<Mutex<omniqueue::DynConsumer>>> {
         use omniqueue::backends::rabbitmq::RabbitMqConfig;
+        use omniqueue::backends::redis::RedisConfig;
+        use omniqueue::backends::{RabbitMqBackend, RedisBackend};
 
         let mut consumers = backend.consumers.lock().await;
 
@@ -440,7 +481,9 @@ impl QueueService {
                     .make_dynamic()
                     .build_consumer()
                     .await
-                    .map_err(|e| Error::Internal(format!("Failed to create RabbitMQ consumer: {e}")))?
+                    .map_err(|e| {
+                        Error::Internal(format!("Failed to create RabbitMQ consumer: {e}"))
+                    })?
             }
         };
 
@@ -569,10 +612,11 @@ async fn publish_message(
     Path(topic): Path<String>,
     body: Bytes,
 ) -> Result<impl IntoResponse> {
-    let payload: serde_json::Value = serde_json::from_slice(&body)
-        .unwrap_or_else(|_| serde_json::json!({
+    let payload: serde_json::Value = serde_json::from_slice(&body).unwrap_or_else(|_| {
+        serde_json::json!({
             "data": String::from_utf8_lossy(&body).to_string()
-        }));
+        })
+    });
 
     match &service.backend {
         QueueBackend::InMemory { topics, .. } => {
@@ -670,16 +714,19 @@ async fn push_to_queue(
     Path(queue_name): Path<String>,
     body: Bytes,
 ) -> Result<impl IntoResponse> {
-    let payload: serde_json::Value = serde_json::from_slice(&body)
-        .unwrap_or_else(|_| serde_json::json!({
+    let payload: serde_json::Value = serde_json::from_slice(&body).unwrap_or_else(|_| {
+        serde_json::json!({
             "data": String::from_utf8_lossy(&body).to_string()
-        }));
+        })
+    });
 
     let message_id = uuid::Uuid::new_v4().to_string();
 
     match &service.backend {
         QueueBackend::InMemory { queues, .. } => {
-            let queue = service.get_or_create_inmemory_queue(queues, &queue_name).await?;
+            let queue = service
+                .get_or_create_inmemory_queue(queues, &queue_name)
+                .await?;
             queue
                 .producer
                 .send(payload.clone())
@@ -717,7 +764,9 @@ async fn pop_from_queue(
 
     match &service.backend {
         QueueBackend::InMemory { queues, .. } => {
-            let queue = service.get_or_create_inmemory_queue(queues, &queue_name).await?;
+            let queue = service
+                .get_or_create_inmemory_queue(queues, &queue_name)
+                .await?;
             let mut consumer = queue.consumer.lock().await;
 
             match tokio::time::timeout(timeout, consumer.recv()).await {

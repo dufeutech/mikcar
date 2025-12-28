@@ -13,12 +13,12 @@
 use crate::{Error, HealthCheck, HealthResult, Result, Sidecar};
 
 use axum::{
+    Json, Router,
     body::Bytes,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post},
-    Json, Router,
 };
 use redb::{Database, ReadableTable, TableDefinition};
 use serde::Deserialize;
@@ -149,9 +149,8 @@ impl KvService {
     /// let kv = KvService::from_env()?;
     /// ```
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("KV_URL").map_err(|_| {
-            Error::Config("KV_URL environment variable not set".to_string())
-        })?;
+        let url = std::env::var("KV_URL")
+            .map_err(|_| Error::Config("KV_URL environment variable not set".to_string()))?;
 
         Self::from_url(&url)
     }
@@ -195,9 +194,7 @@ impl Sidecar for KvService {
             Ok(handle) => {
                 // We're in a tokio context, use block_in_place
                 tokio::task::block_in_place(|| {
-                    handle.block_on(async {
-                        backend.health().await.healthy
-                    })
+                    handle.block_on(async { backend.health().await.healthy })
                 })
             }
             Err(_) => {
@@ -600,7 +597,6 @@ impl RedbBackend {
 
         Ok(Self { db: Arc::new(db) })
     }
-
 }
 
 // Free functions for spawn_blocking (can't capture &self)
@@ -993,7 +989,6 @@ impl KvBackend for RedbBackend {
         })
     }
 }
-
 
 #[cfg(test)]
 mod tests {

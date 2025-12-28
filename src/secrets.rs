@@ -10,17 +10,17 @@
 use crate::{Error, HealthCheck, HealthResult, Result, Sidecar};
 
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
-    Json, Router,
 };
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use base64::Engine;
 use tracing::{info, warn};
 
 // ============================================================================
@@ -173,9 +173,7 @@ impl SecretsBackend for MemoryBackend {
 
         let infos: Vec<SecretInfo> = secrets
             .iter()
-            .filter(|(k, _)| {
-                prefix.is_none_or(|p| k.starts_with(p))
-            })
+            .filter(|(k, _)| prefix.is_none_or(|p| k.starts_with(p)))
             .map(|(k, v)| SecretInfo {
                 name: k.clone(),
                 version: v.version.clone(),
@@ -236,16 +234,27 @@ impl SecretsBackend for EnvBackend {
         }
     }
 
-    async fn create(&self, _name: &str, _value: &str, _labels: HashMap<String, String>) -> Result<()> {
-        Err(Error::BadRequest("Environment backend is read-only".to_string()))
+    async fn create(
+        &self,
+        _name: &str,
+        _value: &str,
+        _labels: HashMap<String, String>,
+    ) -> Result<()> {
+        Err(Error::BadRequest(
+            "Environment backend is read-only".to_string(),
+        ))
     }
 
     async fn update(&self, _name: &str, _value: &str) -> Result<()> {
-        Err(Error::BadRequest("Environment backend is read-only".to_string()))
+        Err(Error::BadRequest(
+            "Environment backend is read-only".to_string(),
+        ))
     }
 
     async fn delete(&self, _name: &str) -> Result<bool> {
-        Err(Error::BadRequest("Environment backend is read-only".to_string()))
+        Err(Error::BadRequest(
+            "Environment backend is read-only".to_string(),
+        ))
     }
 
     async fn list(&self, prefix: Option<&str>) -> Result<Vec<SecretInfo>> {
@@ -315,8 +324,8 @@ impl VaultBackend {
     /// - `token` - Vault token (can also be set via `VAULT_TOKEN` env var)
     /// - `mount` - KV secrets engine mount point (default: `secret`)
     pub fn from_url(url: &str) -> Result<Self> {
-        let parsed = url::Url::parse(url)
-            .map_err(|e| Error::Config(format!("Invalid Vault URL: {e}")))?;
+        let parsed =
+            url::Url::parse(url).map_err(|e| Error::Config(format!("Invalid Vault URL: {e}")))?;
 
         let host = parsed.host_str().unwrap_or("localhost");
         let port = parsed.port().unwrap_or(8200);
@@ -337,7 +346,10 @@ impl VaultBackend {
         let token = token
             .or_else(|| std::env::var("VAULT_TOKEN").ok())
             .ok_or_else(|| {
-                Error::Config("Vault token not provided. Set ?token=... in URL or VAULT_TOKEN env var".to_string())
+                Error::Config(
+                    "Vault token not provided. Set ?token=... in URL or VAULT_TOKEN env var"
+                        .to_string(),
+                )
             })?;
 
         let base_url = format!("http://{host}:{port}");
@@ -358,7 +370,8 @@ impl SecretsBackend for VaultBackend {
     async fn get(&self, name: &str) -> Result<Option<Secret>> {
         let url = format!("{}/v1/{}/data/{}", self.base_url, self.mount, name);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("X-Vault-Token", &self.token)
             .send()
@@ -375,7 +388,9 @@ impl SecretsBackend for VaultBackend {
             return Err(Error::Internal(format!("Vault error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse Vault response: {e}")))?;
 
         // Vault KV v2 response structure:
@@ -385,9 +400,7 @@ impl SecretsBackend for VaultBackend {
             .and_then(|d| d.get("data"))
             .ok_or_else(|| Error::Internal("Invalid Vault response structure".to_string()))?;
 
-        let metadata = body
-            .get("data")
-            .and_then(|d| d.get("metadata"));
+        let metadata = body.get("data").and_then(|d| d.get("metadata"));
 
         // Extract value - if there's a single "value" key, use it; otherwise serialize all data
         let value = if let Some(v) = data.get("value") {
@@ -416,7 +429,12 @@ impl SecretsBackend for VaultBackend {
         }))
     }
 
-    async fn create(&self, name: &str, value: &str, _labels: HashMap<String, String>) -> Result<()> {
+    async fn create(
+        &self,
+        name: &str,
+        value: &str,
+        _labels: HashMap<String, String>,
+    ) -> Result<()> {
         let url = format!("{}/v1/{}/data/{}", self.base_url, self.mount, name);
 
         let body = serde_json::json!({
@@ -425,7 +443,8 @@ impl SecretsBackend for VaultBackend {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("X-Vault-Token", &self.token)
             .json(&body)
@@ -450,7 +469,8 @@ impl SecretsBackend for VaultBackend {
     async fn delete(&self, name: &str) -> Result<bool> {
         let url = format!("{}/v1/{}/data/{}", self.base_url, self.mount, name);
 
-        let response = self.client
+        let response = self
+            .client
             .delete(&url)
             .header("X-Vault-Token", &self.token)
             .send()
@@ -474,7 +494,8 @@ impl SecretsBackend for VaultBackend {
         let path = prefix.unwrap_or("");
         let url = format!("{}/v1/{}/metadata/{}", self.base_url, self.mount, path);
 
-        let response = self.client
+        let response = self
+            .client
             .request(reqwest::Method::from_bytes(b"LIST").unwrap(), &url)
             .header("X-Vault-Token", &self.token)
             .send()
@@ -491,7 +512,9 @@ impl SecretsBackend for VaultBackend {
             return Err(Error::Internal(format!("Vault error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse Vault response: {e}")))?;
 
         let keys = body
@@ -522,17 +545,23 @@ impl SecretsBackend for VaultBackend {
     async fn health(&self) -> Result<()> {
         let url = format!("{}/v1/sys/health", self.base_url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
             .map_err(|e| Error::Internal(format!("Vault health check failed: {e}")))?;
 
         // Vault returns 200 for healthy, 429/472/473/501/503 for various states
-        if response.status().is_success() || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        if response.status().is_success()
+            || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+        {
             Ok(())
         } else {
-            Err(Error::Internal(format!("Vault unhealthy: status {}", response.status())))
+            Err(Error::Internal(format!(
+                "Vault unhealthy: status {}",
+                response.status()
+            )))
         }
     }
 }
@@ -576,8 +605,8 @@ impl AwsSecretsManagerBackend {
     /// - `region` - AWS region (e.g., us-east-1)
     /// - `endpoint` - Optional custom endpoint (for LocalStack/testing)
     pub fn from_url(url: &str) -> Result<Self> {
-        let parsed = url::Url::parse(url)
-            .map_err(|e| Error::Config(format!("Invalid AWS SM URL: {e}")))?;
+        let parsed =
+            url::Url::parse(url).map_err(|e| Error::Config(format!("Invalid AWS SM URL: {e}")))?;
 
         let region = parsed.host_str().unwrap_or("us-east-1").to_string();
 
@@ -591,9 +620,8 @@ impl AwsSecretsManagerBackend {
         }
 
         // Default endpoint or custom (for LocalStack)
-        let endpoint = endpoint.unwrap_or_else(|| {
-            format!("https://secretsmanager.{region}.amazonaws.com")
-        });
+        let endpoint =
+            endpoint.unwrap_or_else(|| format!("https://secretsmanager.{region}.amazonaws.com"));
 
         // Get credentials from environment
         let access_key_id = std::env::var("AWS_ACCESS_KEY_ID").map_err(|_| {
@@ -629,7 +657,8 @@ impl AwsSecretsManagerBackend {
         let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
         let date_stamp = now.format("%Y%m%d").to_string();
 
-        let host = self.endpoint
+        let host = self
+            .endpoint
             .trim_start_matches("https://")
             .trim_start_matches("http://")
             .split('/')
@@ -674,7 +703,10 @@ impl AwsSecretsManagerBackend {
         );
 
         Ok(vec![
-            ("Content-Type".to_string(), "application/x-amz-json-1.1".to_string()),
+            (
+                "Content-Type".to_string(),
+                "application/x-amz-json-1.1".to_string(),
+            ),
             ("X-Amz-Date".to_string(), amz_date),
             ("X-Amz-Target".to_string(), target.to_string()),
             ("Authorization".to_string(), authorization),
@@ -684,7 +716,7 @@ impl AwsSecretsManagerBackend {
 
 /// SHA-256 hash as hex string.
 fn sha256_hex(data: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
     hex::encode(hasher.finalize())
@@ -696,8 +728,7 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
     use sha2::Sha256;
 
     type HmacSha256 = Hmac<Sha256>;
-    let mut mac = HmacSha256::new_from_slice(key)
-        .expect("HMAC can take key of any size");
+    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC can take key of any size");
     mac.update(data);
     mac.finalize().into_bytes().to_vec()
 }
@@ -707,7 +738,8 @@ impl SecretsBackend for AwsSecretsManagerBackend {
     async fn get(&self, name: &str) -> Result<Option<Secret>> {
         let body = serde_json::json!({
             "SecretId": name
-        }).to_string();
+        })
+        .to_string();
 
         let headers = self.sign_request("POST", &body, "secretsmanager.GetSecretValue")?;
 
@@ -739,7 +771,9 @@ impl SecretsBackend for AwsSecretsManagerBackend {
             return Err(Error::Internal(format!("AWS SM error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse AWS SM response: {e}")))?;
 
         let value = body
@@ -775,12 +809,18 @@ impl SecretsBackend for AwsSecretsManagerBackend {
         }))
     }
 
-    async fn create(&self, name: &str, value: &str, _labels: HashMap<String, String>) -> Result<()> {
+    async fn create(
+        &self,
+        name: &str,
+        value: &str,
+        _labels: HashMap<String, String>,
+    ) -> Result<()> {
         let body = serde_json::json!({
             "Name": name,
             "SecretString": value,
             "ClientRequestToken": uuid::Uuid::new_v4().to_string()
-        }).to_string();
+        })
+        .to_string();
 
         let headers = self.sign_request("POST", &body, "secretsmanager.CreateSecret")?;
 
@@ -814,7 +854,8 @@ impl SecretsBackend for AwsSecretsManagerBackend {
             "SecretId": name,
             "SecretString": value,
             "ClientRequestToken": uuid::Uuid::new_v4().to_string()
-        }).to_string();
+        })
+        .to_string();
 
         let headers = self.sign_request("POST", &body, "secretsmanager.PutSecretValue")?;
 
@@ -847,7 +888,8 @@ impl SecretsBackend for AwsSecretsManagerBackend {
         let body = serde_json::json!({
             "SecretId": name,
             "ForceDeleteWithoutRecovery": true
-        }).to_string();
+        })
+        .to_string();
 
         let headers = self.sign_request("POST", &body, "secretsmanager.DeleteSecret")?;
 
@@ -909,7 +951,9 @@ impl SecretsBackend for AwsSecretsManagerBackend {
             return Err(Error::Internal(format!("AWS SM error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse AWS SM response: {e}")))?;
 
         let secrets = body
@@ -922,12 +966,14 @@ impl SecretsBackend for AwsSecretsManagerBackend {
             .into_iter()
             .filter_map(|s| {
                 let name = s.get("Name")?.as_str()?.to_string();
-                let version = s.get("VersionId")
+                let version = s
+                    .get("VersionId")
                     .and_then(|v| v.as_str())
                     .unwrap_or("N/A")
                     .to_string();
                 #[allow(clippy::cast_possible_truncation)] // Timestamp is within i64 range
-                let created_at = s.get("CreatedDate")
+                let created_at = s
+                    .get("CreatedDate")
                     .and_then(serde_json::Value::as_f64)
                     .map_or_else(
                         || "N/A".to_string(),
@@ -937,7 +983,8 @@ impl SecretsBackend for AwsSecretsManagerBackend {
                         },
                     );
                 #[allow(clippy::cast_possible_truncation)] // Timestamp is within i64 range
-                let updated_at = s.get("LastChangedDate")
+                let updated_at = s
+                    .get("LastChangedDate")
                     .and_then(serde_json::Value::as_f64)
                     .map_or_else(
                         || created_at.clone(),
@@ -967,7 +1014,8 @@ impl SecretsBackend for AwsSecretsManagerBackend {
         // List secrets with max 1 result as health check
         let body = serde_json::json!({
             "MaxResults": 1
-        }).to_string();
+        })
+        .to_string();
 
         let headers = self.sign_request("POST", &body, "secretsmanager.ListSecrets")?;
 
@@ -1025,10 +1073,11 @@ impl GcpSecretManagerBackend {
     ///
     /// URL format: `gcp-sm://project-id`
     pub fn from_url(url: &str) -> Result<Self> {
-        let parsed = url::Url::parse(url)
-            .map_err(|e| Error::Config(format!("Invalid GCP SM URL: {e}")))?;
+        let parsed =
+            url::Url::parse(url).map_err(|e| Error::Config(format!("Invalid GCP SM URL: {e}")))?;
 
-        let project_id = parsed.host_str()
+        let project_id = parsed
+            .host_str()
             .ok_or_else(|| Error::Config("GCP project ID required in URL".to_string()))?
             .to_string();
 
@@ -1062,13 +1111,10 @@ impl GcpSecretManagerBackend {
 impl SecretsBackend for GcpSecretManagerBackend {
     async fn get(&self, name: &str) -> Result<Option<Secret>> {
         // GCP Secret Manager requires accessing the latest version
-        let url = format!(
-            "{}/{}/versions/latest:access",
-            self.base_url(),
-            name
-        );
+        let url = format!("{}/{}/versions/latest:access", self.base_url(), name);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .send()
@@ -1085,7 +1131,9 @@ impl SecretsBackend for GcpSecretManagerBackend {
             return Err(Error::Internal(format!("GCP SM error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse GCP SM response: {e}")))?;
 
         // GCP returns base64-encoded payload
@@ -1117,7 +1165,12 @@ impl SecretsBackend for GcpSecretManagerBackend {
         }))
     }
 
-    async fn create(&self, name: &str, value: &str, _labels: HashMap<String, String>) -> Result<()> {
+    async fn create(
+        &self,
+        name: &str,
+        value: &str,
+        _labels: HashMap<String, String>,
+    ) -> Result<()> {
         // Step 1: Create the secret (metadata)
         let create_url = format!("{}?secretId={}", self.base_url(), name);
 
@@ -1127,7 +1180,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
             }
         });
 
-        let create_response = self.client
+        let create_response = self
+            .client
             .post(&create_url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .header("Content-Type", "application/json")
@@ -1158,7 +1212,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
             }
         });
 
-        let version_response = self.client
+        let version_response = self
+            .client
             .post(&version_url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .header("Content-Type", "application/json")
@@ -1188,7 +1243,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&version_url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .header("Content-Type", "application/json")
@@ -1213,7 +1269,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
     async fn delete(&self, name: &str) -> Result<bool> {
         let url = format!("{}/{}", self.base_url(), name);
 
-        let response = self.client
+        let response = self
+            .client
             .delete(&url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .send()
@@ -1240,7 +1297,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
             url = format!("{url}?filter=name:{p}");
         }
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .send()
@@ -1253,7 +1311,9 @@ impl SecretsBackend for GcpSecretManagerBackend {
             return Err(Error::Internal(format!("GCP SM error {status}: {body}")));
         }
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| Error::Internal(format!("Failed to parse GCP SM response: {e}")))?;
 
         let secrets = body
@@ -1269,7 +1329,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
                 // Extract just the secret name from the full resource path
                 let name = full_name.rsplit('/').next()?.to_string();
 
-                let created_at = s.get("createTime")
+                let created_at = s
+                    .get("createTime")
                     .and_then(|v| v.as_str())
                     .unwrap_or("N/A")
                     .to_string();
@@ -1289,7 +1350,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
     async fn exists(&self, name: &str) -> Result<bool> {
         let url = format!("{}/{}", self.base_url(), name);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .send()
@@ -1303,7 +1365,8 @@ impl SecretsBackend for GcpSecretManagerBackend {
         // List secrets with page size 1 as health check
         let url = format!("{}?pageSize=1", self.base_url());
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.access_token))
             .send()
@@ -1371,9 +1434,8 @@ impl SecretsService {
     /// let secrets = SecretsService::from_env()?;
     /// ```
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("SECRETS_URL").map_err(|_| {
-            Error::Config("SECRETS_URL environment variable not set".to_string())
-        })?;
+        let url = std::env::var("SECRETS_URL")
+            .map_err(|_| Error::Config("SECRETS_URL environment variable not set".to_string()))?;
 
         Self::from_url(&url)
     }
@@ -1559,9 +1621,7 @@ async fn exists_secret(
 }
 
 /// List all secrets.
-async fn list_secrets(
-    State(backend): State<Arc<dyn SecretsBackend>>,
-) -> Result<impl IntoResponse> {
+async fn list_secrets(State(backend): State<Arc<dyn SecretsBackend>>) -> Result<impl IntoResponse> {
     let secrets = backend.list(None).await?;
 
     Ok(Json(serde_json::json!({

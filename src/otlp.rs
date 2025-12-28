@@ -16,17 +16,15 @@
 //! mikcar --otlp-endpoint http://localhost:4317 --service-name my-sidecar --storage
 //! ```
 
-#![cfg(feature = "otlp")]
-
-use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
+use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use std::sync::OnceLock;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 /// Global tracer provider for shutdown.
 static TRACER_PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
@@ -59,6 +57,7 @@ impl OtlpConfig {
     }
 
     /// Set the service name.
+    #[must_use]
     pub fn with_service_name(mut self, name: impl Into<String>) -> Self {
         self.service_name = name.into();
         self
@@ -109,8 +108,8 @@ fn init_tracer_provider(config: &OtlpConfig) -> Result<SdkTracerProvider, OtlpEr
 ///
 /// This sets up both stdout logging and OTLP trace export.
 /// Spans will be sent to the configured OTLP endpoint.
-pub fn init_with_otlp(config: OtlpConfig) -> Result<(), OtlpError> {
-    let provider = init_tracer_provider(&config)?;
+pub fn init_with_otlp(config: &OtlpConfig) -> Result<(), OtlpError> {
+    let provider = init_tracer_provider(config)?;
     let tracer = provider.tracer("mikcar");
 
     // Store provider for shutdown

@@ -21,16 +21,11 @@
 
 use crate::{Error, Result, Sidecar};
 
-use axum::{
-    extract::State,
-    response::IntoResponse,
-    routing::post,
-    Json, Router,
-};
+use axum::{Json, Router, extract::State, response::IntoResponse, routing::post};
 use serde::{Deserialize, Serialize};
-use sqlx::{postgres::PgPoolOptions, Column, PgPool, Row, Postgres, Transaction};
-use std::sync::Arc;
+use sqlx::{Column, PgPool, Postgres, Row, Transaction, postgres::PgPoolOptions};
 use std::cell::RefCell;
+use std::sync::Arc;
 use std::time::Instant;
 
 // =============================================================================
@@ -82,37 +77,53 @@ fn extract_table_name(sql_upper: &str, query_type: &str) -> Option<String> {
         "SELECT" => {
             // SELECT ... FROM table_name
             words.iter().position(|&w| w == "FROM").and_then(|i| {
-                words.get(i + 1).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+                words
+                    .get(i + 1)
+                    .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
             })
         }
         "INSERT" => {
             // INSERT INTO table_name
             words.iter().position(|&w| w == "INTO").and_then(|i| {
-                words.get(i + 1).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+                words
+                    .get(i + 1)
+                    .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
             })
         }
         "UPDATE" => {
             // UPDATE table_name
-            words.get(1).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+            words
+                .get(1)
+                .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
         }
         "DELETE" => {
             // DELETE FROM table_name
             words.iter().position(|&w| w == "FROM").and_then(|i| {
-                words.get(i + 1).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+                words
+                    .get(i + 1)
+                    .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
             })
         }
         "DROP" | "TRUNCATE" | "ALTER" => {
             // DROP/TRUNCATE/ALTER TABLE table_name
             words.iter().position(|&w| w == "TABLE").and_then(|i| {
-                words.get(i + 1).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+                words
+                    .get(i + 1)
+                    .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
             })
         }
         "CREATE" => {
             // CREATE TABLE table_name
             words.iter().position(|&w| w == "TABLE").and_then(|i| {
                 // Skip "IF NOT EXISTS" if present
-                let next_idx = if words.get(i + 1) == Some(&"IF") { i + 4 } else { i + 1 };
-                words.get(next_idx).map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
+                let next_idx = if words.get(i + 1) == Some(&"IF") {
+                    i + 4
+                } else {
+                    i + 1
+                };
+                words
+                    .get(next_idx)
+                    .map(|s| s.trim_matches(|c| c == '(' || c == ')').to_lowercase())
             })
         }
         _ => None,
@@ -185,9 +196,8 @@ impl SqlService {
     /// let sql = SqlService::from_env().await?;
     /// ```
     pub async fn from_env() -> Result<Self> {
-        let url = std::env::var("DATABASE_URL").map_err(|_| {
-            Error::Config("DATABASE_URL environment variable not set".to_string())
-        })?;
+        let url = std::env::var("DATABASE_URL")
+            .map_err(|_| Error::Config("DATABASE_URL environment variable not set".to_string()))?;
 
         Self::from_url(&url).await
     }
@@ -341,7 +351,12 @@ async fn execute_query(
         .collect();
 
     // Audit log
-    log_sql_audit(&body.sql, execution_time_ms, Some(json_rows.len() as u64), "/query");
+    log_sql_audit(
+        &body.sql,
+        execution_time_ms,
+        Some(json_rows.len() as u64),
+        "/query",
+    );
 
     let response = QueryResponse {
         row_count: json_rows.len(),
@@ -369,7 +384,12 @@ async fn execute_statement(
     let rows_affected = result.rows_affected();
 
     // Audit log
-    log_sql_audit(&body.sql, execution_time_ms, Some(rows_affected), "/execute");
+    log_sql_audit(
+        &body.sql,
+        execution_time_ms,
+        Some(rows_affected),
+        "/execute",
+    );
 
     Ok(Json(ExecuteResponse { rows_affected }))
 }
@@ -396,7 +416,12 @@ async fn execute_batch(
         total_affected += rows_affected;
 
         // Audit log each statement in batch
-        log_sql_audit(&stmt.sql, stmt_start.elapsed().as_millis(), Some(rows_affected), "/batch");
+        log_sql_audit(
+            &stmt.sql,
+            stmt_start.elapsed().as_millis(),
+            Some(rows_affected),
+            "/batch",
+        );
     }
 
     tx.commit().await?;
@@ -504,7 +529,7 @@ fn row_to_json_value(row: &sqlx::postgres::PgRow, index: usize) -> serde_json::V
 // JavaScript Script Execution
 // =============================================================================
 
-use rquickjs::{Context, Runtime, Function, Object, Value as JsValue, FromJs};
+use rquickjs::{Context, FromJs, Function, Object, Runtime, Value as JsValue};
 
 /// Message sent from JS to Rust for SQL execution.
 #[derive(Debug)]
@@ -512,7 +537,9 @@ enum SqlMessage {
     Query {
         sql: String,
         params: Vec<serde_json::Value>,
-        response_tx: std::sync::mpsc::Sender<std::result::Result<Vec<serde_json::Map<String, serde_json::Value>>, String>>,
+        response_tx: std::sync::mpsc::Sender<
+            std::result::Result<Vec<serde_json::Map<String, serde_json::Value>>, String>,
+        >,
     },
     Execute {
         sql: String,
@@ -565,9 +592,8 @@ async fn execute_script(
     let script = wrapped_script.clone();
 
     // Spawn the JS execution in a blocking task
-    let mut js_handle = tokio::task::spawn_blocking(move || {
-        run_js_script(&script, &input_json, bridge_clone)
-    });
+    let mut js_handle =
+        tokio::task::spawn_blocking(move || run_js_script(&script, &input_json, bridge_clone));
 
     // Process SQL messages from JS while it runs
     let mut last_error: Option<String> = None;
@@ -649,7 +675,9 @@ async fn execute_script(
             tx.commit().await?;
             Ok(Json(ScriptResponse {
                 result,
-                queries_executed: bridge.query_count.load(std::sync::atomic::Ordering::Relaxed),
+                queries_executed: bridge
+                    .query_count
+                    .load(std::sync::atomic::Ordering::Relaxed),
             }))
         }
         Ok(Err(e)) => {
@@ -664,19 +692,27 @@ async fn execute_script(
 }
 
 /// Perform a SQL query using the thread-local bridge.
-fn bridge_query(sql: String, params: Vec<serde_json::Value>) -> std::result::Result<Vec<serde_json::Map<String, serde_json::Value>>, String> {
+fn bridge_query(
+    sql: String,
+    params: Vec<serde_json::Value>,
+) -> std::result::Result<Vec<serde_json::Map<String, serde_json::Value>>, String> {
     SQL_BRIDGE.with(|cell| {
         let bridge = cell.borrow();
         let bridge = bridge.as_ref().ok_or("SQL bridge not initialized")?;
 
         let (resp_tx, resp_rx) = std::sync::mpsc::channel();
-        bridge.tx.send(SqlMessage::Query {
-            sql,
-            params,
-            response_tx: resp_tx,
-        }).map_err(|e| e.to_string())?;
+        bridge
+            .tx
+            .send(SqlMessage::Query {
+                sql,
+                params,
+                response_tx: resp_tx,
+            })
+            .map_err(|e| e.to_string())?;
 
-        bridge.query_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        bridge
+            .query_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         resp_rx.recv().map_err(|e| e.to_string())?
     })
 }
@@ -688,13 +724,18 @@ fn bridge_execute(sql: String, params: Vec<serde_json::Value>) -> std::result::R
         let bridge = bridge.as_ref().ok_or("SQL bridge not initialized")?;
 
         let (resp_tx, resp_rx) = std::sync::mpsc::channel();
-        bridge.tx.send(SqlMessage::Execute {
-            sql,
-            params,
-            response_tx: resp_tx,
-        }).map_err(|e| e.to_string())?;
+        bridge
+            .tx
+            .send(SqlMessage::Execute {
+                sql,
+                params,
+                response_tx: resp_tx,
+            })
+            .map_err(|e| e.to_string())?;
 
-        bridge.query_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        bridge
+            .query_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         resp_rx.recv().map_err(|e| e.to_string())?
     })
 }
@@ -712,7 +753,8 @@ fn run_js_script(
 
     // Create QuickJS runtime
     let runtime = Runtime::new().map_err(|e| format!("Failed to create JS runtime: {e}"))?;
-    let context = Context::full(&runtime).map_err(|e| format!("Failed to create JS context: {e}"))?;
+    let context =
+        Context::full(&runtime).map_err(|e| format!("Failed to create JS context: {e}"))?;
 
     let result = context.with(|ctx| {
         let globals = ctx.globals();
@@ -726,8 +768,12 @@ fn run_js_script(
         let execute_fn = Function::new(ctx.clone(), native_execute)
             .map_err(|e| format!("Failed to create execute function: {e}"))?;
 
-        globals.set("__sql_query", query_fn).map_err(|e| format!("Failed to set __sql_query: {e}"))?;
-        globals.set("__sql_execute", execute_fn).map_err(|e| format!("Failed to set __sql_execute: {e}"))?;
+        globals
+            .set("__sql_query", query_fn)
+            .map_err(|e| format!("Failed to set __sql_query: {e}"))?;
+        globals
+            .set("__sql_execute", execute_fn)
+            .map_err(|e| format!("Failed to set __sql_execute: {e}"))?;
 
         // Create sql wrapper in JavaScript that provides a nice API
         let sql_wrapper = r"
@@ -741,12 +787,15 @@ fn run_js_script(
                 }
             };
         ";
-        ctx.eval::<(), _>(sql_wrapper).map_err(|e| format!("Failed to create sql wrapper: {e}"))?;
+        ctx.eval::<(), _>(sql_wrapper)
+            .map_err(|e| format!("Failed to create sql wrapper: {e}"))?;
 
         // Set input object
-        let input_json = serde_json::to_string(&input).map_err(|e| format!("Failed to serialize input: {e}"))?;
+        let input_json =
+            serde_json::to_string(&input).map_err(|e| format!("Failed to serialize input: {e}"))?;
         let input_script = format!("var input = {input_json};");
-        ctx.eval::<(), _>(input_script.as_str()).map_err(|e| format!("Failed to set input: {e}"))?;
+        ctx.eval::<(), _>(input_script.as_str())
+            .map_err(|e| format!("Failed to set input: {e}"))?;
 
         // Execute the script
         let result: JsValue<'_> = ctx.eval(script).map_err(|e| format!("Script error: {e}"))?;
@@ -766,27 +815,25 @@ fn run_js_script(
 /// Native query function - takes SQL and params as JSON string, returns JSON string
 #[allow(clippy::needless_pass_by_value)] // Required by rquickjs FFI
 fn native_query(sql: String, params_json: String) -> rquickjs::Result<String> {
-    let params: Vec<serde_json::Value> = serde_json::from_str(&params_json)
-        .map_err(|_| rquickjs::Error::Exception)?;
+    let params: Vec<serde_json::Value> =
+        serde_json::from_str(&params_json).map_err(|_| rquickjs::Error::Exception)?;
 
     match bridge_query(sql, params) {
-        Ok(rows) => {
-            serde_json::to_string(&rows).map_err(|_| rquickjs::Error::Exception)
-        }
-        Err(_) => Err(rquickjs::Error::Exception)
+        Ok(rows) => serde_json::to_string(&rows).map_err(|_| rquickjs::Error::Exception),
+        Err(_) => Err(rquickjs::Error::Exception),
     }
 }
 
 /// Native execute function - takes SQL and params as JSON string, returns rows affected
 #[allow(clippy::needless_pass_by_value)] // Required by rquickjs FFI
 fn native_execute(sql: String, params_json: String) -> rquickjs::Result<i64> {
-    let params: Vec<serde_json::Value> = serde_json::from_str(&params_json)
-        .map_err(|_| rquickjs::Error::Exception)?;
+    let params: Vec<serde_json::Value> =
+        serde_json::from_str(&params_json).map_err(|_| rquickjs::Error::Exception)?;
 
     match bridge_execute(sql, params) {
         #[allow(clippy::cast_possible_wrap)] // Row count won't exceed i64::MAX
         Ok(affected) => Ok(affected as i64),
-        Err(_) => Err(rquickjs::Error::Exception)
+        Err(_) => Err(rquickjs::Error::Exception),
     }
 }
 
@@ -819,7 +866,12 @@ async fn execute_query_in_tx(
         .collect();
 
     // Audit log
-    log_sql_audit(sql, execution_time_ms, Some(json_rows.len() as u64), "/script");
+    log_sql_audit(
+        sql,
+        execution_time_ms,
+        Some(json_rows.len() as u64),
+        "/script",
+    );
 
     Ok(json_rows)
 }
@@ -852,7 +904,10 @@ async fn execute_statement_in_tx(
 // =============================================================================
 
 #[allow(clippy::needless_pass_by_value)] // Value is cloned internally for type checking
-fn js_to_json<'js>(ctx: &rquickjs::Ctx<'js>, value: JsValue<'js>) -> std::result::Result<serde_json::Value, String> {
+fn js_to_json<'js>(
+    ctx: &rquickjs::Ctx<'js>,
+    value: JsValue<'js>,
+) -> std::result::Result<serde_json::Value, String> {
     if value.is_null() || value.is_undefined() {
         Ok(serde_json::Value::Null)
     } else if let Some(b) = value.as_bool() {
@@ -915,9 +970,15 @@ fn preprocess_script(script: &str) -> String {
     if trimmed.starts_with("export default") {
         // Replace "export default" with variable assignment
         let transformed = script
-            .replace("export default async function", "var __default__ = async function")
+            .replace(
+                "export default async function",
+                "var __default__ = async function",
+            )
             .replace("export default function", "var __default__ = function")
-            .replace("export default async (", "var __default__ = async function(")
+            .replace(
+                "export default async (",
+                "var __default__ = async function(",
+            )
             .replace("export default (", "var __default__ = function(");
 
         // Call the default export with input
