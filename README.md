@@ -21,22 +21,40 @@ Two optimized images available:
 
 | Image            | Size  | Queue Support   | Base                  |
 | ---------------- | ----- | --------------- | --------------------- |
-| `Dockerfile`     | ~21MB | No              | scratch (musl static) |
-| `Dockerfile.all` | ~65MB | Redis, RabbitMQ | distroless            |
+| `mikcar`         | ~21MB | No              | scratch (musl static) |
+| `mikcar-all`     | ~65MB | Redis, RabbitMQ | distroless            |
+
+### Pull from GitHub Container Registry
 
 ```bash
 # Minimal image (no queue) - recommended for most use cases
-docker build -t mikcar .
+docker pull ghcr.io/dufeut/mikcar:latest
 
 # Full image with queue support
-docker build -f Dockerfile.all -t mikcar:all .
+docker pull ghcr.io/dufeut/mikcar-all:latest
 
-# Run
+# Pull specific version
+docker pull ghcr.io/dufeut/mikcar:0.1.0
+```
+
+### Run
+
+```bash
 docker run -p 3001:3001 \
   -e SIDECAR_TOKEN=secret \
   -e KV_URL=memory:// \
   -e STORAGE_URL=memory:// \
-  mikcar --kv --storage
+  ghcr.io/dufeut/mikcar:latest --kv --storage
+```
+
+### Build locally
+
+```bash
+# Minimal image (no queue)
+docker build -t mikcar .
+
+# Full image with queue support
+docker build -f Dockerfile.all -t mikcar:all .
 ```
 
 ## Installation
