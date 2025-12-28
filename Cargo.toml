@@ -1,6 +1,6 @@
 [package]
 name = "mikcar"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2024"
 license = "MIT"
 description = "Sidecar infrastructure services for mik (storage, kv, sql, queue)"

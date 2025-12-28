@@ -59,15 +59,11 @@ jobs:
         env:
           RUST_LOG: debug
 
-      # Clean target on Windows to avoid LNK1318 PDB errors from cached artifacts
-      - name: Clean target (Windows)
-        if: runner.os == 'Windows'
-        run: cargo clean
-
       # Test without sql feature on Windows (rquickjs has linker issues in CI)
+      # Use --release to avoid LNK1318 PDB symbol limit errors in debug builds
       - name: Test (default features without sql)
         if: runner.os == 'Windows'
-        run: cargo test --no-default-features --features storage,kv,secrets,email
+        run: cargo test --release --no-default-features --features storage,kv,secrets,email
         env:
           RUST_LOG: debug
 
@@ -178,11 +174,6 @@ jobs:
       - name: Build (release)
         if: runner.os != 'Windows'
         run: cargo build --release
-
-      # Clean target on Windows to avoid LNK1318 PDB errors from cached artifacts
-      - name: Clean target (Windows)
-        if: runner.os == 'Windows'
-        run: cargo clean
 
       # Build without sql feature on Windows (rquickjs linker issues in CI)
       - name: Build (release, no sql)
