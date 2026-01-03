@@ -28,13 +28,13 @@ Two optimized images available:
 
 ```bash
 # Minimal image (no queue) - recommended for most use cases
-docker pull ghcr.io/dufeut/mikcar:latest
+docker pull ghcr.io/dufeutech/mikcar:latest
 
 # Full image with queue support
-docker pull ghcr.io/dufeut/mikcar-all:latest
+docker pull ghcr.io/dufeutech/mikcar-all:latest
 
 # Pull specific version
-docker pull ghcr.io/dufeut/mikcar:0.1.0
+docker pull ghcr.io/dufeutech/mikcar:0.1.0
 ```
 
 ### Run
@@ -44,7 +44,7 @@ docker run -p 3001:3001 \
   -e SIDECAR_TOKEN=secret \
   -e KV_URL=memory:// \
   -e STORAGE_URL=memory:// \
-  ghcr.io/dufeut/mikcar:latest --kv --storage
+  ghcr.io/dufeutech/mikcar:latest --kv --storage
 ```
 
 ### Build locally
@@ -327,7 +327,7 @@ mikcar can be used as a Rust library to embed sidecars in your own applications 
 
 ```toml
 [dependencies]
-mikcar = { git = "https://github.com/dufeut/mikcar", features = ["all"] }
+mikcar = { git = "https://github.com/dufeutech/mikcar", features = ["all"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
